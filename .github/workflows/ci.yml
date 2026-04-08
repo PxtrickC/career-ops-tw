@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18', '20', '22']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run test suite
+        run: node test-all.mjs --quick
+
+      - name: Pipeline integrity check
+        run: node verify-pipeline.mjs
+
+      - name: Tracker merge dry-run
+        run: node merge-tracker.mjs --dry-run
+
+      - name: Status normalization dry-run
+        run: node normalize-statuses.mjs --dry-run
+
+      - name: Scan-portal helper smoke test (offline check)
+        # Just verify the helper loads + --help works on every supported
+        # platform. Don't actually hit external APIs in CI — we don't want
+        # to hammer 104/Cake/Yourator from GitHub Actions IPs.
+        run: |
+          node scan-portal.mjs --help
+          node -e "import('./scan-portal.mjs').catch(e => { console.error(e); process.exit(1); })"
+
+      - name: lib/states.mjs smoke test
+        # Confirm the canonical state loader resolves a representative set
+        # of inputs (English canonical, Spanish legacy alias, zh-TW alias,
+        # unknown). This catches regressions in templates/states.yml or
+        # the parser without a heavy unit test framework.
+        run: |
+          node -e "
+          import('./lib/states.mjs').then(m => {
+            const cases = [
+              ['Evaluated', 'Evaluated'],
+              ['Evaluada',  'Evaluated'],
+              ['已申請',    'Applied'],
+              ['面試中',    'Interview'],
+              ['婉拒',      'Rejected'],
+              ['SKIP',      'SKIP'],
+              ['no aplicar','SKIP'],
+              ['banana',    null],
+            ];
+            let fail = 0;
+            for (const [input, expected] of cases) {
+              const got = m.resolveLabel(input);
+              const ok = got === expected;
+              if (!ok) { console.error('FAIL:', JSON.stringify(input), '→', JSON.stringify(got), 'expected', JSON.stringify(expected)); fail++; }
+            }
+            if (fail) process.exit(1);
+            console.log('lib/states.mjs: ' + cases.length + ' cases pass');
+          }).catch(e => { console.error(e); process.exit(1); });
+          "

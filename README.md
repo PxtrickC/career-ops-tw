@@ -2,6 +2,7 @@
 
 > 為台灣求職者打造的 AI 命令中心 — 評估職缺、產生客製化 CV、掃描本土平台、追蹤所有申請. 全部繁體中文, 全部跑在 [Claude Code](https://claude.com/claude-code) 上.
 
+[![CI](https://github.com/PxtrickC/career-ops-tw/actions/workflows/ci.yml/badge.svg)](https://github.com/PxtrickC/career-ops-tw/actions/workflows/ci.yml)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-000?style=flat&logo=anthropic&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat&logo=playwright&logoColor=white)
