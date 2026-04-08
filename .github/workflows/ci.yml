@@ -46,12 +46,14 @@ jobs:
         run: node normalize-statuses.mjs --dry-run
 
       - name: Scan-portal helper smoke test (offline check)
-        # Just verify the helper loads + --help works on every supported
-        # platform. Don't actually hit external APIs in CI — we don't want
-        # to hammer 104/Cake/Yourator from GitHub Actions IPs.
+        # Verify the helper parses and the CLI dispatches correctly. We
+        # deliberately do NOT hit external APIs from GitHub Actions IPs to
+        # avoid hammering 104/Cake/Yourator/1111. The --help path exercises
+        # arg parsing, the unknown-platform path exercises dispatch and
+        # the error code (`!` inverts: we EXPECT this to exit non-zero).
         run: |
           node scan-portal.mjs --help
-          node -e "import('./scan-portal.mjs').catch(e => { console.error(e); process.exit(1); })"
+          ! node scan-portal.mjs nonsense-platform 2>/dev/null
 
       - name: lib/states.mjs smoke test
         # Confirm the canonical state loader resolves a representative set
