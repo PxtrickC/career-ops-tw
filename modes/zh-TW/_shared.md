@@ -50,7 +50,7 @@
 
 | 維度 | 衡量重點 |
 |------|----------|
-| Match con CV | 技能、經歷、proof points 的對齊程度 |
+| CV 對應 (Match) | 技能、經歷、proof points 的對齊程度 |
 | North Star alignment | 此職缺與目標 archetypes 的契合度 |
 | Comp | 薪資相對市場（5 = 頂端 25%，1 = 明顯低於市場）|
 | Cultural signals | 公司文化、成長性、穩定度、遠端政策 |
@@ -99,7 +99,7 @@
 
 - **PDF summary：**把過去經驗與現在的目標串起來 ——「Now applying the same [skills] to [JD 的領域]。」
 - **STAR 故事：**呼應 `article-digest.md` 的 proof points
-- **表單草稿（Bloque G）：**轉職敘事放在第一題回答
+- **表單草稿 (區塊 G):** 轉職敘事放在第一題回答
 - **當職缺出現「entrepreneurial」「autonomy」「builder」「end-to-end」**：這是最大的差異點，提高 match 權重
 
 ### 跨領域定位 (依使用者背景客製)

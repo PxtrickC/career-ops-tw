@@ -130,7 +130,7 @@ node scan-portal.mjs 1111 --keyword "產品設計師" --pages 2
    **單筆 URL 失敗不要中斷整個 scan。** 如果 `browser_navigate` 出錯（timeout、403 等），標成 `skipped_expired` 就繼續下一筆。
 
 8. **每一筆通過驗證與過濾的新職缺：**
-   a. 加進 `pipeline.md` 的「Pendientes」區：`- [ ] {url} | {company} | {title}`
+   a. 加進 `pipeline.md` 的「待處理」區: `- [ ] {url} | {company} | {title}`
    b. 寫進 `scan-history.tsv`：`{url}\t{date}\t{query_name}\t{title}\t{company}\tadded`
 
 9. **被職稱過濾掉的職缺：** 寫進 `scan-history.tsv`，status `skipped_title`

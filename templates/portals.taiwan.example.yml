@@ -60,16 +60,25 @@ title_filter:
     - "Product Manager"
     - "Technical PM"
   negative:
+    # 階級 / 雇用型態
     - "實習"
     - "工讀"
     - "Intern"
     - "Junior"
     - "派遣"
     - "外包"
+    # 台灣特有勞動紅旗 (在 scan 階段就擋掉, 不浪費 evaluation 額度)
+    - "責任制"
+    - "薪資面議"
+    - "面議"
+    - "高薪低報"
+    # 角色類型不符
     - "業務"
     - "Sales"
     - "客服"
     - "行政"
+    - "助理"
+    # Stack 不符 (依使用者需求調整)
     - ".NET"
     - "PHP"
     - "iOS"

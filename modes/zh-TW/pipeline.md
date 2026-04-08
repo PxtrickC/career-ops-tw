@@ -4,15 +4,15 @@
 
 ## Workflow
 
-1. **讀取** `data/pipeline.md` → 在「Pendientes（待處理）」段落找 `- [ ]` 項目
-2. **對每筆待處理 URL：**
-   a. 計算下一個 `REPORT_NUM`（讀 `reports/`，取最大號 + 1）
-   b. **抓 JD：**Playwright（browser_navigate + browser_snapshot）→ WebFetch → WebSearch
-   c. URL 無法存取 → 標記為 `- [!]` 並加備註，繼續下一個
-   d. **跑完整 auto-pipeline：**A–F 評估 → Report .md → PDF（score >= 3.0）→ Tracker
-   e. **從「Pendientes」移到「Procesadas」：**`- [x] #NNN | URL | 公司 | 角色 | Score/5 | PDF ✅/❌`
-3. **如果有 3 筆以上待處理：**用 Agent 工具搭配 `run_in_background` 並行處理
-4. **跑完之後**輸出總結表格：
+1. **讀取** `data/pipeline.md` → 在「待處理」段落找 `- [ ]` 項目
+2. **對每筆待處理 URL:**
+   a. 計算下一個 `REPORT_NUM` (讀 `reports/`, 取最大號 + 1)
+   b. **抓 JD**: 台灣本土平台優先用 `scan-portal.mjs` (104/Cake/Yourator/1111). 國際 ATS 走 WebFetch (cake.me / job-boards.greenhouse.io 是 SSR, 直接抓有效). Playwright 是 fallback.
+   c. URL 無法存取 → 標記為 `- [!]` 並加備註, 繼續下一個
+   d. **跑完整 auto-pipeline:** A-F 評估 → Report .md → PDF (score >= 3.0) → Tracker (TSV 寫到 `batch/tracker-additions/`)
+   e. **從「待處理」移到「已處理」:** `- [x] #NNN | URL | 公司 | 角色 | Score/5 | PDF ✅/❌`
+3. **如果有 3 筆以上待處理:** 用 Agent 工具搭配 `run_in_background` 並行處理
+4. **跑完之後**輸出總結表格:
 
 ```
 | # | 公司 | 角色 | Score | PDF | 建議行動 |
@@ -21,12 +21,12 @@
 ## pipeline.md 格式
 
 ```markdown
-## Pendientes
+## 待處理
 - [ ] https://jobs.example.com/posting/123
 - [ ] https://boards.greenhouse.io/company/jobs/456 | Company Inc | Senior PM
 - [!] https://private.url/job — Error: login required
 
-## Procesadas
+## 已處理
 - [x] #143 | https://jobs.example.com/posting/789 | Acme Corp | AI PM | 4.2/5 | PDF ✅
 - [x] #144 | https://boards.greenhouse.io/xyz/jobs/012 | BigCo | SA | 2.1/5 | PDF ❌
 ```

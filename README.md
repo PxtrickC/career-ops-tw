@@ -52,18 +52,29 @@ career-ops-tw 是 agentic 的: Claude Code 會用 Playwright 走 careers page、
 
 ## 快速開始
 
-**前置需求**:
-- [Claude Code](https://claude.com/claude-code) (CLI 版或 desktop)
-- Node.js 18+
-- Git
-
-**安裝:**
+**前置 checklist** (5 分鐘設定):
 
 ```bash
+# 1. 確認 Node 18+
+node --version    # 應該是 v18.x 或更新
+
+# 2. 確認你已安裝 Claude Code (https://claude.com/claude-code) 並登入
+claude --version
+
+# 3. Clone + install
 git clone https://github.com/PxtrickC/career-ops-tw.git
 cd career-ops-tw
 npm install
+
+# 4. 安裝 Playwright 的 Chromium binary (CV PDF 生成需要)
+npx playwright install chromium
+
+# 5. 健康檢查 — 確認所有 script 跟模式檔都齊全
+npm run test
+# 或更詳細的: node test-all.mjs --quick
 ```
+
+如果 step 5 顯示 `60 passed, 0 failed`, 就完成了. 1 個 warning 是正常的 (`cv-sync-check.mjs` 因為還沒建 cv.md 而 fail, 跑完 onboarding 後就會消失).
 
 **第一次跑:**
 
