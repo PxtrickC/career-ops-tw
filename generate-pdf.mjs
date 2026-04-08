@@ -130,7 +130,10 @@ async function generatePDF() {
   }
 
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  // locale=zh-TW so Chromium uses Traditional Chinese glyph shaping
+  // (matters when both Simplified and Traditional fall back to the same font).
+  const context = await browser.newContext({ locale: 'zh-TW' });
+  const page = await context.newPage();
 
   // Set content with file base URL for any relative resources
   await page.setContent(html, {

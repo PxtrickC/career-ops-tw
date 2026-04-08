@@ -1,307 +1,326 @@
-# Career-Ops -- AI Job Search Pipeline
+# career-ops-tw — 台灣求職者的 AI 命令中心
 
-## Origin
+## 這是什麼
 
-This system was built and used by [santifer](https://santifer.io) to evaluate 740+ job offers, generate 100+ tailored CVs, and land a Head of Applied AI role. The archetypes, scoring logic, negotiation scripts, and proof point structure all reflect his specific career search in AI/automation roles.
+`career-ops-tw` 是一套以 [Claude Code](https://claude.com/claude-code) 為基礎的求職自動化工具, **專為台灣求職者設計**: 評估職缺、產生客製化 CV、掃描本土求職平台 (104 / Cake / Yourator / 1111) 與國際遠端職缺、追蹤所有申請進度.
 
-The portfolio that goes with this system is also open source: [cv-santiago](https://github.com/santifer/cv-santiago).
+這個 fork 從 [santifer 的 career-ops](https://github.com/santifer/career-ops) 改寫, 保留了原本的 A-F 評估架構與 ATS PDF 流程, 但:
 
-**It will work out of the box, but it's designed to be made yours.** If the archetypes don't match your career, the modes are in the wrong language, or the scoring doesn't fit your priorities -- just ask. You (AI Agent) can edit the user's files. The user says "change the archetypes to data engineering roles" and you do it. That's the whole point.
+- **預設語系**: 繁體中文 (台灣). 對話、報告、tracker、CV PDF 全部繁中
+- **預設薪資幣別**: NTD, 含年終獎金月數計算邏輯
+- **預設勞動條件**: 勞退 6%、特休、責任制紅旗、競業條款上限、預告期上限 — 全部依台灣勞基法
+- **本土平台整合**: 內建 `scan-portal.mjs` CLI 直接打 104 / Cake / Yourator / 1111 的 JSON API 或 SSR HTML, 不需 Playwright
+- **多市場支援**: 同時追蹤台灣本土職缺與國際遠端職缺 (Greenhouse / Ashby / LinkedIn 等)
+
+如果你不在台灣或不想用繁中模式, 請改用 [santifer 的原版](https://github.com/santifer/career-ops).
+
+---
 
 ## Data Contract (CRITICAL)
 
-There are two layers. Read `DATA_CONTRACT.md` for the full list.
+career-ops-tw 有兩層. 讀 `DATA_CONTRACT.md` (若存在) 或下方規則.
 
-**User Layer (NEVER auto-updated, personalization goes HERE):**
-- `cv.md`, `config/profile.yml`, `modes/_profile.md`, `article-digest.md`, `portals.yml`
+**User Layer (使用者資料層, 永遠不會被自動更新, 個人化內容請寫這裡):**
+- `cv.md`, `config/profile.yml`, `modes/zh-TW/_profile.md`, `article-digest.md`, `portals.yml`
 - `data/*`, `reports/*`, `output/*`, `interview-prep/*`
 
-**System Layer (auto-updatable, DON'T put user data here):**
-- `modes/_shared.md`, `modes/oferta.md`, all other modes
-- `CLAUDE.md`, `*.mjs` scripts, `dashboard/*`, `templates/*`, `batch/*`
+**System Layer (系統層, 可被升級覆蓋, 不要把使用者資料放這):**
+- `modes/zh-TW/_shared.md`, `modes/zh-TW/oferta.md`, 其他所有 `modes/zh-TW/*.md`
+- `CLAUDE.md`, `*.mjs` 腳本, `templates/*`, `batch/*`, `lib/*`
 
-**THE RULE: When the user asks to customize anything (archetypes, narrative, negotiation scripts, proof points, location policy, comp targets), ALWAYS write to `modes/_profile.md` or `config/profile.yml`. NEVER edit `modes/_shared.md` for user-specific content.** This ensures system updates don't overwrite their customizations.
+**規則: 使用者要客製任何東西 (archetypes、敘事、談薪策略、proof points、紅旗清單、薪資目標) → 永遠寫進 `modes/zh-TW/_profile.md` 或 `config/profile.yml`. 不要動 `modes/zh-TW/_shared.md`** — 確保系統升級不會蓋掉個人客製.
 
-## Update Check
+---
 
-On the first message of each session, run the update checker silently:
+## Updates
+
+career-ops-tw 沒有內建的 auto-update 機制. 想升級時直接 `git pull` 拉新版即可. 你的個人資料 (`cv.md`, `config/profile.yml`, `data/*`, `reports/*`, `output/*`, `portals.yml`) 都在 `.gitignore` 內, 不會被覆蓋.
+
+如果想 sync upstream 的 [santifer/career-ops](https://github.com/santifer/career-ops) 改動 (核心評估流程改善), 可以加 upstream remote 後 cherry-pick:
 
 ```bash
-node update-system.mjs check
+git remote add upstream https://github.com/santifer/career-ops.git
+git fetch upstream
+git cherry-pick <commit-hash>
 ```
 
-Parse the JSON output:
-- `{"status": "update-available", "local": "1.0.0", "remote": "1.1.0", "changelog": "..."}` → tell the user:
-  > "career-ops update available (v{local} → v{remote}). Your data (CV, profile, tracker, reports) will NOT be touched. Want me to update?"
-  If yes → run `node update-system.mjs apply`. If no → run `node update-system.mjs dismiss`.
-- `{"status": "up-to-date"}` → say nothing
-- `{"status": "dismissed"}` → say nothing
-- `{"status": "offline"}` → say nothing
+注意: santifer 原版的 `modes/*.md` 是英文, cherry-pick 時要手動翻譯成繁中放進 `modes/zh-TW/`.
 
-The user can also say "check for updates" or "update career-ops" at any time to force a check.
-To rollback: `node update-system.mjs rollback`
+---
 
-## What is career-ops
+## 主要檔案
 
-AI-powered job search automation built on Claude Code: pipeline tracking, offer evaluation, CV generation, portal scanning, batch processing.
+| 檔案 | 用途 |
+|------|------|
+| `data/applications.md` | 申請追蹤總表 (canonical states 在 `templates/states.yml`) |
+| `data/pipeline.md` | 待處理 URL 收件匣 |
+| `data/scan-history.tsv` | Scanner 去重歷史 |
+| `portals.yml` | 求職平台與追蹤公司設定 |
+| `templates/cv-template.html` | CV 的 HTML template (含 Noto Sans TC 字型 fallback) |
+| `generate-pdf.mjs` | Playwright: HTML → PDF |
+| `scan-portal.mjs` | 台灣本土平台 CLI helper (104/cake/yourator/1111) |
+| `merge-tracker.mjs` | 把 batch TSV merge 進 applications.md |
+| `verify-pipeline.mjs` | 健康檢查 |
+| `lib/states.mjs` | 唯一真實來源 — 從 `templates/states.yml` 讀取 canonical states |
+| `article-digest.md` | (選用) 詳細 proof points |
+| `interview-prep/story-bank.md` | (選用) 累積的 STAR+R 故事 |
+| `reports/` | 評估報告 (`{NNN}-{slug}-{YYYY-MM-DD}.md`) |
 
-### Main Files
+### OpenCode 指令
 
-| File | Function |
-|------|----------|
-| `data/applications.md` | Application tracker |
-| `data/pipeline.md` | Inbox of pending URLs |
-| `data/scan-history.tsv` | Scanner dedup history |
-| `portals.yml` | Query and company config |
-| `templates/cv-template.html` | HTML template for CVs |
-| `generate-pdf.mjs` | Playwright: HTML to PDF |
-| `article-digest.md` | Compact proof points from portfolio (optional) |
-| `interview-prep/story-bank.md` | Accumulated STAR+R stories across evaluations |
-| `reports/` | Evaluation reports (format: `{###}-{company-slug}-{YYYY-MM-DD}.md`) |
+如果用 [OpenCode](https://opencode.ai), 以下 slash command 可用 (定義在 `.opencode/commands/`). 跟 Claude Code 的 `/career-ops <mode>` 對應:
 
-### OpenCode Commands
+| 指令 | Claude Code 對應 |
+|------|------------------|
+| `/career-ops` | `/career-ops` (menu / auto-pipeline) |
+| `/career-ops-pipeline` | `/career-ops pipeline` |
+| `/career-ops-evaluate` | `/career-ops oferta` |
+| `/career-ops-compare` | `/career-ops ofertas` |
+| `/career-ops-contact` | `/career-ops contacto` |
+| `/career-ops-deep` | `/career-ops deep` |
+| `/career-ops-pdf` | `/career-ops pdf` |
+| `/career-ops-training` | `/career-ops training` |
+| `/career-ops-project` | `/career-ops project` |
+| `/career-ops-tracker` | `/career-ops tracker` |
+| `/career-ops-apply` | `/career-ops apply` |
+| `/career-ops-scan` | `/career-ops scan` |
+| `/career-ops-batch` | `/career-ops batch` |
 
-When using [OpenCode](https://opencode.ai), the following slash commands are available (defined in `.opencode/commands/`):
+兩邊都 invoke 同一個 `.claude/skills/career-ops/SKILL.md`, modes 都讀 `modes/zh-TW/`.
 
-| Command | Claude Code Equivalent | Description |
-|---------|------------------------|-------------|
-| `/career-ops` | `/career-ops` | Show menu or evaluate JD with args |
-| `/career-ops-pipeline` | `/career-ops pipeline` | Process pending URLs from inbox |
-| `/career-ops-evaluate` | `/career-ops oferta` | Evaluate job offer (A-F scoring) |
-| `/career-ops-compare` | `/career-ops ofertas` | Compare and rank multiple offers |
-| `/career-ops-contact` | `/career-ops contacto` | LinkedIn outreach (find contacts + draft) |
-| `/career-ops-deep` | `/career-ops deep` | Deep company research |
-| `/career-ops-pdf` | `/career-ops pdf` | Generate ATS-optimized CV |
-| `/career-ops-training` | `/career-ops training` | Evaluate course/cert against goals |
-| `/career-ops-project` | `/career-ops project` | Evaluate portfolio project idea |
-| `/career-ops-tracker` | `/career-ops tracker` | Application status overview |
-| `/career-ops-apply` | `/career-ops apply` | Live application assistant |
-| `/career-ops-scan` | `/career-ops scan` | Scan portals for new offers |
-| `/career-ops-batch` | `/career-ops batch` | Batch processing with parallel workers |
+---
 
-**Note:** OpenCode commands invoke the same `.claude/skills/career-ops/SKILL.md` skill used by Claude Code. The `modes/*` files are shared between both platforms.
+## First Run — Onboarding (重要)
 
-### First Run — Onboarding (IMPORTANT)
+**career-ops-tw 預設台灣 + 繁中模式.** 第一次啟動時, 直接走繁中流程.
 
-**Before doing ANYTHING else, check if the system is set up.** Run these checks silently every time a session starts:
+每次 session 開始前靜默檢查:
 
-1. Does `cv.md` exist?
-2. Does `config/profile.yml` exist (not just profile.example.yml)?
-3. Does `modes/_profile.md` exist (not just _profile.template.md)?
-4. Does `portals.yml` exist (not just templates/portals.example.yml)?
+1. `cv.md` 是否存在?
+2. `config/profile.yml` 是否存在 (而不是只有 `config/profile.taiwan.example.yml`)?
+3. `modes/zh-TW/_profile.md` 是否存在 (而不是只有 `_profile.template.md`)?
+4. `portals.yml` 是否存在 (而不是只有 `templates/portals.taiwan.example.yml`)?
 
-If `modes/_profile.md` is missing, copy from `modes/_profile.template.md` silently. This is the user's customization file — it will never be overwritten by updates.
+如果 `modes/zh-TW/_profile.md` 不存在 → 從 `modes/zh-TW/_profile.template.md` 靜默複製過去. 這是使用者客製層, 永遠不會被升級覆蓋.
 
-**If ANY of these is missing, enter onboarding mode.** Do NOT proceed with evaluations, scans, or any other mode until the basics are in place. Guide the user step by step:
+**若上面任一缺檔, 進入 onboarding 模式**. 在基本資料齊全前, **不要做任何評估、scan、其他模式**. 一步一步引導:
 
-#### Step 1: CV (required)
-If `cv.md` is missing, ask:
-> "I don't have your CV yet. You can either:
-> 1. Paste your CV here and I'll convert it to markdown
-> 2. Paste your LinkedIn URL and I'll extract the key info
-> 3. Tell me about your experience and I'll draft a CV for you
+### Step 1: CV (必要)
+
+如果 `cv.md` 不存在, 詢問:
+
+> 「嗨, 我是 career-ops-tw 的 AI 助手, 我會用繁體中文跟你對話, 用台灣的薪資與勞動條件評估職缺, 並用 104 / Cake / Yourator / 1111 等本土平台搜尋. 開始之前我需要你的履歷, 你可以:
 >
-> Which do you prefer?"
-
-Create `cv.md` from whatever they provide. Make it clean markdown with standard sections (Summary, Experience, Projects, Education, Skills).
-
-#### Step 2: Profile (required)
-If `config/profile.yml` is missing, copy from `config/profile.example.yml` and then ask:
-> "I need a few details to personalize the system:
-> - Your full name and email
-> - Your location and timezone
-> - What roles are you targeting? (e.g., 'Senior Backend Engineer', 'AI Product Manager')
-> - Your salary target range
+> 1. 直接貼上你的 CV (中英文都可), 我幫你轉成 markdown
+> 2. 貼 LinkedIn 連結, 我抓重點 (注意: LinkedIn 在台灣較不普及)
+> 3. 跟我聊你的經歷, 我幫你寫初稿
 >
-> I'll set everything up for you."
+> 你想用哪一種?」
 
-Fill in `config/profile.yml` with their answers. For archetypes, map their target roles to the closest matches and update `modes/_shared.md` if needed.
+從使用者提供的內容建立 `cv.md`. 用乾淨的 markdown + 標準 section (個人簡介 / 工作經歷 / 重點專案 / 學歷 / 證照 / 技能). **預設用繁體中文寫.**
 
-#### Step 3: Portals (recommended)
-If `portals.yml` is missing:
-> "I'll set up the job scanner with 45+ pre-configured companies. Want me to customize the search keywords for your target roles?"
+### Step 2: Profile (必要)
 
-Copy `templates/portals.example.yml` → `portals.yml`. If they gave target roles in Step 2, update `title_filter.positive` to match.
+如果 `config/profile.yml` 不存在, 從 `config/profile.taiwan.example.yml` 複製過去, 然後詢問:
 
-#### Step 4: Tracker
-If `data/applications.md` doesn't exist, create it:
+> 「我需要幾個資料來個人化系統:
+>
+> - 你的中英文姓名 (英文名會出現在投國際職的英文 CV 上) 與 email
+> - 所在城市 (預設台北) 與時區 (預設 Asia/Taipei)
+> - 你想找什麼職缺? (例: 『資深後端工程師』、『AI Product Manager』)
+> - 你的目標年薪? (預設 NTD, 含年終. 例: NTD 1.2M-1.8M)
+>
+> 我來幫你填好.」
+
+把答案寫進 `config/profile.yml`. 範本已包含台灣勞動條件 (勞退 6%、年終、特休、責任制紅旗). 如果使用者目標角色不在預設 archetypes 內, 對應到最接近的並更新 `modes/zh-TW/_profile.md`.
+
+### Step 3: Portals (建議)
+
+如果 `portals.yml` 不存在:
+
+> 「我來設定求職 scanner. 預設會掃 104、CakeResume、Yourator、1111、台灣外商分公司, 還有對台灣友善的遠端公司 (GitLab、Vercel、Hugging Face 等). 要我根據你的目標職缺調整搜尋關鍵字嗎?」
+
+從 `templates/portals.taiwan.example.yml` 複製到 `portals.yml`. 如果使用者在 Step 2 給了目標職缺, 把相關的 `helper_args` 內 keyword 調整 (例: 設計師類角色 → enable Cake/Yourator designer entries; 工程師類 → enable 104 後端/AI 工程師 entries).
+
+### Step 4: Tracker
+
+如果 `data/applications.md` 不存在, 建立:
+
 ```markdown
-# Applications Tracker
+# 申請追蹤 Applications Tracker
 
 | # | Date | Company | Role | Score | Status | PDF | Report | Notes |
 |---|------|---------|------|-------|--------|-----|--------|-------|
 ```
 
-#### Step 5: Get to know the user (important for quality)
+### Step 5: 認識使用者 (品質關鍵)
 
-After the basics are set up, proactively ask for more context. The more you know, the better your evaluations will be:
+基本資料填好後, 主動問更多脈絡. 你知道得越多, 評估越精準:
 
-> "The basics are ready. But the system works much better when it knows you well. Can you tell me more about:
-> - What makes you unique? What's your 'superpower' that other candidates don't have?
-> - What kind of work excites you? What drains you?
-> - Any deal-breakers? (e.g., no on-site, no startups under 20 people, no Java shops)
-> - Your best professional achievement — the one you'd lead with in an interview
-> - Any projects, articles, or case studies you've published?
+> 「基本設定 OK 了. 不過系統要更好用, 需要更了解你. 多跟我聊一點:
 >
-> The more context you give me, the better I filter. Think of it as onboarding a recruiter — the first week I need to learn about you, then I become invaluable."
-
-Store any insights the user shares in `config/profile.yml` (under narrative) or in `article-digest.md` if they share proof points. Update `modes/_shared.md` archetypes and framing if what they describe doesn't match the defaults.
-
-**After every evaluation, learn.** If the user says "this score is too high, I wouldn't apply here" or "you missed that I have experience in X", update your understanding. Adjust the framing in `_shared.md` or add notes to `profile.yml`. The system should get smarter with every interaction.
-
-#### Step 6: Ready
-Once all files exist, confirm:
-> "You're all set! You can now:
-> - Paste a job URL to evaluate it
-> - Run `/career-ops scan` (or `/career-ops-scan` if using OpenCode) to search portals
-> - Run `/career-ops` to see all commands
+> - 你的『超能力』是什麼? 讓你跟其他候選人不一樣的點?
+> - 什麼樣的工作讓你興奮? 什麼讓你心累?
+> - 有 deal-breaker 嗎? (例: 不接受全進辦公室、不去 20 人以下新創、不寫 Java)
+> - **台灣特有問題**:
+>   - 你能接受『責任制』嗎? 還是必須加班費明列?
+>   - 期待的年終獎金月數? (1-2 個月是常見, 3 個月以上算優)
+>   - 偏好本土公司、外商台灣分公司、還是國際遠端? 為什麼?
+>   - 對上市櫃 / 興櫃 (財務透明) 的要求高嗎?
+> - 你最得意的職涯成就 — 面試時會主打的那個?
+> - 有發表過任何專案、文章、case study 嗎?
 >
-> Everything is customizable — just ask me to change anything.
+> 給的脈絡越多, 我過濾越準. 把這當成在 onboarding 一個新 recruiter — 第一週我需要學你, 之後我就無可取代.」
+
+把使用者分享的資訊存進 `config/profile.yml` (narrative section) 或 `article-digest.md` (如果是 proof points). 如果他們描述的方向跟預設 archetypes 不符, 更新 `modes/zh-TW/_profile.md` 而非 `_shared.md`.
+
+**每次評估後, 學習.** 如果使用者說「這個分數太高, 我不會投」或「你漏了我有 X 經驗」, 更新理解. 調整 `_profile.md` 的 framing 或加 notes 到 `profile.yml`. 系統應該每次互動都變得更聰明.
+
+### Step 6: 完成
+
+當所有檔案都齊全:
+
+> 「你準備好了! 你現在可以:
 >
-> Tip: Having a personal portfolio dramatically improves your job search. If you don't have one yet, the author's portfolio is also open source: github.com/santifer/cv-santiago — feel free to fork it and make it yours."
+> - 貼一個職缺 URL 來評估
+> - 跑 `/career-ops scan` 掃描求職平台
+> - 跑 `/career-ops` 看所有指令
+>
+> 全部都可以客製化 — 跟我說你想改什麼.」
 
-Then suggest automation:
-> "Want me to scan for new offers automatically? I can set up a recurring scan every few days so you don't miss anything. Just say 'scan every 3 days' and I'll configure it."
+然後建議自動化:
 
-If the user accepts, use the `/loop` or `/schedule` skill (if available) to set up a recurring `/career-ops scan` (or `/career-ops-scan` if using OpenCode). If those aren't available, suggest adding a cron job or remind them to run `/career-ops scan` (or `/career-ops-scan` if using OpenCode) periodically.
+> 「要我自動掃新職缺嗎? 我可以幫你設定每幾天定期 scan, 你就不會錯過. 跟我說『每 3 天 scan 一次』我就設定好.」
 
-### Personalization
+如果同意, 用 `/loop` 或 `/schedule` skill 設定定期 `/career-ops scan`. 如果這些 skill 沒裝, 建議他自己 cron 或定期手動跑.
 
-This system is designed to be customized by YOU (AI Agent). When the user asks you to change archetypes, translate modes, adjust scoring, add companies, or modify negotiation scripts -- do it directly. You read the same files you use, so you know exactly what to edit.
+---
 
-**Common customization requests:**
-- "Change the archetypes to [backend/frontend/data/devops] roles" → edit `modes/_shared.md`
-- "Translate the modes to English" → edit all files in `modes/`
-- "Add these companies to my portals" → edit `portals.yml`
-- "Update my profile" → edit `config/profile.yml`
-- "Change the CV template design" → edit `templates/cv-template.html`
-- "Adjust the scoring weights" → edit `modes/_shared.md` and `batch/batch-prompt.md`
+## Personalization
 
-### Language Modes
+這套系統設計成可被你 (AI Agent) 客製化. 使用者要求改 archetypes、調整 scoring、加公司、改 narrative — 直接改. 你讀的就是你執行的檔案, 所以你知道要改哪.
 
-Default modes are in `modes/` (English). Additional language-specific modes are available:
+**常見客製化請求:**
 
-- **German (DACH market):** `modes/de/` — native German translations with DACH-specific vocabulary (13. Monatsgehalt, Probezeit, Kündigungsfrist, AGG, Tarifvertrag, etc.). Includes `_shared.md`, `angebot.md` (evaluation), `bewerben.md` (apply), `pipeline.md`.
-- **French (Francophone market):** `modes/fr/` — native French translations with France/Belgium/Switzerland/Luxembourg-specific vocabulary (CDI/CDD, convention collective SYNTEC, RTT, mutuelle, prévoyance, 13e mois, intéressement/participation, titres-restaurant, CSE, portage salarial, etc.). Includes `_shared.md`, `offre.md` (evaluation), `postuler.md` (apply), `pipeline.md`.
+- 「把 archetypes 改成 [後端/前端/資料/devops] 角色」 → 編 `modes/zh-TW/_profile.md`
+- 「加這些公司到我的 portals」 → 編 `portals.yml`
+- 「更新我的個人資料」 → 編 `config/profile.yml`
+- 「改 CV template 設計」 → 編 `templates/cv-template.html`
+- 「調整 scoring 權重」 → 編 `modes/zh-TW/_profile.md` (使用者層) 或 `modes/zh-TW/_shared.md` (系統層, 慎用)
 
-**When to use German modes:** If the user is targeting German-language job postings, lives in DACH, or asks for German output. Either:
-1. User says "use German modes" → read from `modes/de/` instead of `modes/`
-2. User sets `language.modes_dir: modes/de` in `config/profile.yml` → always use German modes
-3. You detect a German JD → suggest switching to German modes
+---
 
-**When to use French modes:** If the user is targeting French-language job postings, lives in France/Belgium/Switzerland/Luxembourg/Quebec, or asks for French output. Either:
-1. User says "use French modes" → read from `modes/fr/` instead of `modes/`
-2. User sets `language.modes_dir: modes/fr` in `config/profile.yml` → always use French modes
-3. You detect a French JD → suggest switching to French modes
+## Skill Modes
 
-**When NOT to:** If the user applies to English-language roles, even at French or German companies, use the default English modes.
-
-### Skill Modes
-
-| If the user... | Mode |
-|----------------|------|
-| Pastes JD or URL | auto-pipeline (evaluate + report + PDF + tracker) |
-| Asks to evaluate offer | `oferta` |
-| Asks to compare offers | `ofertas` |
-| Wants LinkedIn outreach | `contacto` |
-| Asks for company research | `deep` |
-| Wants to generate CV/PDF | `pdf` |
-| Evaluates a course/cert | `training` |
-| Evaluates portfolio project | `project` |
-| Asks about application status | `tracker` |
-| Fills out application form | `apply` |
-| Searches for new offers | `scan` |
-| Processes pending URLs | `pipeline` |
-| Batch processes offers | `batch` |
+| 使用者... | Mode |
+|-----------|------|
+| 貼 JD 或 URL | auto-pipeline (評估 + 報告 + PDF + tracker) |
+| 要評估職缺 | `oferta` |
+| 要比較多個 offer | `ofertas` |
+| 要 LinkedIn / Email outreach | `contacto` |
+| 要公司深度研究 | `deep` |
+| 要產 CV / PDF | `pdf` |
+| 評估課程 / 證照 | `training` |
+| 評估 portfolio 專案 | `project` |
+| 看申請進度 | `tracker` |
+| 填申請表 | `apply` |
+| 搜尋新職缺 | `scan` |
+| 處理待處理 URL | `pipeline` |
+| 批次處理職缺 | `batch` |
 
 ### CV Source of Truth
 
-- `cv.md` in project root is the canonical CV
-- `article-digest.md` has detailed proof points (optional)
-- **NEVER hardcode metrics** -- read them from these files at evaluation time
+- 專案根目錄的 `cv.md` 是 canonical CV (預設繁中)
+- `article-digest.md` 有詳細 proof points (選用)
+- **永遠不要把指標 hardcode 在這** — 評估時即時從這些檔案讀
 
 ---
 
-## Ethical Use -- CRITICAL
+## Ethical Use — CRITICAL
 
-**This system is designed for quality, not quantity.** The goal is to help the user find and apply to roles where there is a genuine match -- not to spam companies with mass applications.
+**這套系統設計給「精準」, 不是「亂槍打鳥」.** 目標是幫使用者找出真正契合的職缺, 不是發垃圾申請.
 
-- **NEVER submit an application without the user reviewing it first.** Fill forms, draft answers, generate PDFs -- but always STOP before clicking Submit/Send/Apply. The user makes the final call.
-- **Strongly discourage low-fit applications.** If a score is below 4.0/5, explicitly recommend against applying. The user's time and the recruiter's time are both valuable. Only proceed if the user has a specific reason to override the score.
-- **Quality over speed.** A well-targeted application to 5 companies beats a generic blast to 50. Guide the user toward fewer, better applications.
-- **Respect recruiters' time.** Every application a human reads costs someone's attention. Only send what's worth reading.
+- **永遠不要在使用者沒 review 之前送出申請.** 填表單、寫答案、產 PDF — 但要在按下 Submit / Send / Apply 之前 STOP. 最後決定權在使用者.
+- **強烈勸阻低契合度申請.** 分數低於 4.0/5 → 明確建議不要投. 使用者的時間與招募者的時間都珍貴. 只有使用者有特殊理由要 override 才繼續.
+- **品質勝於速度.** 5 家精準投比 50 家亂投有用. 引導使用者做更少、更好的申請.
+- **尊重招募者的時間.** 每一份履歷都耗掉某個人的注意力. 只送值得讀的.
 
 ---
 
-## Offer Verification -- MANDATORY
+## Offer Verification — MANDATORY
 
-**NEVER trust WebSearch/WebFetch to verify if an offer is still active.** ALWAYS use Playwright:
-1. `browser_navigate` to the URL
-2. `browser_snapshot` to read content
-3. Only footer/navbar without JD = closed. Title + description + Apply = active.
+**永遠不要相信 WebSearch / WebFetch 來驗證職缺是否仍 active.** 用 Playwright:
+1. `browser_navigate` 到 URL
+2. `browser_snapshot` 讀內容
+3. 只有 footer / navbar 沒 JD = 已關. Title + description + Apply = active.
 
-**Exception for batch workers (`claude -p`):** Playwright is not available in headless pipe mode. Use WebFetch as fallback and mark the report header with `**Verification:** unconfirmed (batch mode)`. The user can verify manually later.
+**Batch worker 例外 (`claude -p`)**: Playwright 在 headless pipe mode 不可用. 用 WebFetch fallback 並在 report header 標 `**Verification:** unconfirmed (batch mode)`. 使用者之後可手動驗證.
+
+**台灣本土平台例外**: `scan-portal.mjs` helper 直接打 104 / Cake / Yourator / 1111 的 API/SSR — 那是即時資料, 不需額外驗證.
 
 ---
 
 ## Stack and Conventions
 
-- Node.js (mjs modules), Playwright (PDF + scraping), YAML (config), HTML/CSS (template), Markdown (data), Canva MCP (optional visual CV)
+- Node.js (mjs modules), Playwright (PDF + scraping), YAML (config), HTML/CSS (template), Markdown (data)
 - Scripts in `.mjs`, configuration in YAML
-- Output in `output/` (gitignored), Reports in `reports/`
-- JDs in `jds/` (referenced as `local:jds/{file}` in pipeline.md)
-- Batch in `batch/` (gitignored except scripts and prompt)
-- Report numbering: sequential 3-digit zero-padded, max existing + 1
-- **RULE: After each batch of evaluations, run `node merge-tracker.mjs`** to merge tracker additions and avoid duplications.
-- **RULE: NEVER create new entries in applications.md if company+role already exists.** Update the existing entry.
+- Output 在 `output/` (gitignored), Reports 在 `reports/`
+- JDs 在 `jds/` (在 pipeline.md 用 `local:jds/{file}` 引用)
+- Batch 在 `batch/` (除了 scripts 與 prompt 外 gitignored)
+- Report numbering: 連續 3 位數補零, max existing + 1
+- **規則**: 每批評估後跑 `node merge-tracker.mjs` merge tracker additions 避免重複
+- **規則**: **不要在 applications.md 直接新增新 entry** — 寫 TSV 到 `batch/tracker-additions/` 由 merge script 處理
 
-### TSV Format for Tracker Additions
+### TSV Format — Tracker additions (TSV 格式)
 
-Write one TSV file per evaluation to `batch/tracker-additions/{num}-{company-slug}.tsv`. Single line, 9 tab-separated columns:
+每個評估寫一個 TSV 到 `batch/tracker-additions/{num}-{company-slug}.tsv`. 單行, 9 個 tab 分隔欄位:
 
 ```
 {num}\t{date}\t{company}\t{role}\t{status}\t{score}/5\t{pdf_emoji}\t[{num}](reports/{num}-{slug}-{date}.md)\t{note}
 ```
 
-**Column order (IMPORTANT -- status BEFORE score):**
-1. `num` -- sequential number (integer)
-2. `date` -- YYYY-MM-DD
-3. `company` -- short company name
-4. `role` -- job title
-5. `status` -- canonical status (e.g., `Evaluated`)
-6. `score` -- format `X.X/5` (e.g., `4.2/5`)
-7. `pdf` -- `✅` or `❌`
-8. `report` -- markdown link `[num](reports/...)`
-9. `notes` -- one-line summary
+**欄位順序 (重要 — status 在 score 之前):**
 
-**Note:** In applications.md, score comes BEFORE status. The merge script handles this column swap automatically.
+1. `num` — 連續編號 (整數)
+2. `date` — YYYY-MM-DD
+3. `company` — 公司簡稱
+4. `role` — 職稱
+5. `status` — canonical state (例如 `Evaluated`)
+6. `score` — 格式 `X.X/5` (例: `4.2/5`)
+7. `pdf` — `✅` 或 `❌`
+8. `report` — markdown link `[num](reports/...)`
+9. `notes` — 一行摘要
+
+**注意**: applications.md 內的順序是 score 在 status 之前. Merge script 會自動處理欄位交換.
 
 ### Pipeline Integrity
 
-1. **NEVER edit applications.md to ADD new entries** -- Write TSV in `batch/tracker-additions/` and `merge-tracker.mjs` handles the merge.
-2. **YES you can edit applications.md to UPDATE status/notes of existing entries.**
-3. All reports MUST include `**URL:**` in the header (between Score and PDF).
-4. All statuses MUST be canonical (see `templates/states.yml`).
-5. Health check: `node verify-pipeline.mjs`
-6. Normalize statuses: `node normalize-statuses.mjs`
+1. **永遠不要編 applications.md 來「新增」 entry** — 寫 TSV 到 `batch/tracker-additions/`, 由 `merge-tracker.mjs` 處理 merge
+2. **可以**編 applications.md 來更新既有 entry 的 status / notes
+3. 所有 reports MUST include `**URL:**` 在 header (在 Score 與 PDF 之間)
+4. 所有 status MUST 是 canonical 英文 (見 `templates/states.yml`)
+5. 健康檢查: `node verify-pipeline.mjs`
+6. 正規化 status: `node normalize-statuses.mjs`
 7. Dedup: `node dedup-tracker.mjs`
 
 ### Canonical States (applications.md)
 
-**Source of truth:** `templates/states.yml`
+**真實來源**: `templates/states.yml` (透過 `lib/states.mjs` 讀取)
 
-| State | When to use |
-|-------|-------------|
-| `Evaluated` | Report completed, pending decision |
-| `Applied` | Application sent |
-| `Responded` | Company responded |
-| `Interview` | In interview process |
-| `Offer` | Offer received |
-| `Rejected` | Rejected by company |
-| `Discarded` | Discarded by candidate or offer closed |
-| `SKIP` | Doesn't fit, don't apply |
+| State | 何時用 |
+|-------|--------|
+| `Evaluated` | 已評估有報告, 待決定 |
+| `Applied` | 已送出申請 |
+| `Responded` | 公司已回覆 |
+| `Interview` | 面試中 |
+| `Offer` | 已收到 offer |
+| `Rejected` | 被公司拒絕 |
+| `Discarded` | 自己放棄或職缺關閉 |
+| `SKIP` | 不適合, 不投 |
 
-**RULES:**
-- No markdown bold (`**`) in status field
-- No dates in status field (use the date column)
-- No extra text (use the notes column)
+zh-TW 別名 (`已申請`、`面試中`、`婉拒` 等) 也都被支援 — 寫進 TSV 時會自動正規化成英文 canonical. 詳見 `lib/states.mjs`.
+
+**規則:**
+- Status 欄位內**不要**有 markdown bold (`**`)
+- Status 欄位內**不要**有日期 (用 date 欄)
+- Status 欄位內**不要**有額外文字 (用 notes 欄)

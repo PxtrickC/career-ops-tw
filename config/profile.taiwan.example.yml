@@ -1,0 +1,113 @@
+# Career-Ops Profile Configuration — Taiwan (預設)
+# 將此檔複製為 config/profile.yml 並填入你的資料。
+# 這是 career-ops 所有模式共用的個人資料真實來源。
+#
+# 這份範本是為台灣使用者設計的預設值: NTD 幣別、台北時區、繁體中文模式、
+# 台灣勞動條件 (勞退 6%、年終獎金、特休、責任制紅旗) 都已預先設定好。
+#
+# 不在台灣? 請改用 config/profile.example.yml 並跟 Claude 說「use English modes」。
+
+candidate:
+  full_name: "陳小明"           # 你的中文姓名 (英文名也可)
+  english_name: "Ming Chen"     # 投國際職時用的英文姓名 (CV PDF 會用到)
+  email: "ming@example.com"
+  phone: "+886-912-345-678"
+  location: "Taipei, Taiwan"
+  linkedin: "linkedin.com/in/mingchen"
+  portfolio_url: "https://mingchen.dev"
+  github: "github.com/mingchen"
+  # (選用) 如果你有 Canva 履歷設計, 填入 design ID 啟用 /career-ops pdf 的視覺版本
+  # canva_resume_design_id: "DAxxxxxxxxx"
+
+# -- 語系設定 --
+# Taiwan profile 預設使用繁體中文模式. 對話、評估報告、tracker 都會走繁中.
+# CV PDF 預設也會輸出繁中 (如需英文 CV, 跟 Claude 說「英文 CV」即可切換).
+language:
+  primary: zh-TW
+  modes_dir: modes/zh-TW
+  cv_language: zh-TW            # zh-TW (預設) 或 en (英文 CV fallback)
+
+target_roles:
+  # 你的北極星職缺 — 你想優化的方向
+  primary:
+    - "資深後端工程師"
+    - "Senior Backend Engineer"   # 雙語並列, scanner 會同時抓中英關鍵字
+  # Archetypes 幫助評估系統打分
+  archetypes:
+    - name: "Backend Engineer"
+      level: "Senior/Staff"
+      fit: "primary"              # primary = 夢幻職, secondary = 適配, adjacent = 延伸
+    - name: "Full Stack Engineer"
+      level: "Senior"
+      fit: "secondary"
+    - name: "Tech Lead"
+      level: "Mid-Senior"
+      fit: "adjacent"
+
+narrative:
+  # 一句話的職涯標題
+  headline: "從新創 0→1 起家的後端工程師, 專注高流量系統與 AI 整合"
+  # 你的故事 — 讓你獨特的點
+  exit_story: "在台北兩家 B 輪新創帶過後端團隊, 現在想找能持續用 AI 重塑產品的環境"
+  # 你的 3-5 個超能力
+  superpowers:
+    - "高流量系統設計 (DAU 100K+ 經驗)"
+    - "從 0 到 1 建立後端團隊 + CI/CD"
+    - "中英雙語溝通, 與美亞團隊協作"
+  # Proof points — 有量化成果的專案、文章、case study
+  proof_points:
+    - name: "電商推薦系統重構"
+      url: "https://mingchen.dev/case/recommend"
+      hero_metric: "推薦點擊率 +34%, p99 延遲 -60%"
+    - name: "Open source CLI tool"
+      url: "https://github.com/mingchen/tool"
+      hero_metric: "1.2K GitHub stars"
+
+compensation:
+  # 台灣薪資慣例: 通常用「年薪」談 (含年終). 月薪 × (12 + 年終月數) = 年薪.
+  # 範例: 月薪 80K + 年終 2 個月 = 年薪 NTD 1,120,000
+  currency: "TWD"
+  target_range: "NTD 1.2M - 1.8M"     # 年薪總包 (含年終)
+  minimum: "NTD 1.0M"                  # 走人價 (walk-away)
+  bonus_months_expected: 2             # 年終獎金預期月數 (台灣常見 1-2 個月, 外商或績優可能 3-6)
+  # 國際遠端職則用 USD 對照
+  remote_usd_target: "$70K - $110K"
+  location_flexibility: "偏好遠端 / 混合; 可接受台北進辦公室"
+
+location:
+  country: "Taiwan"
+  city: "Taipei"
+  timezone: "Asia/Taipei"              # GMT+8 (CST)
+  visa_status: "本國籍, 不需 sponsorship"
+  # 投國際遠端時的時區重疊說明:
+  # onsite_availability: "可配合美西早上 / 歐洲下午會議 (台北深夜)"
+
+# -- 台灣特有: 勞動條件偏好與紅旗 --
+labor_preferences:
+  pension_employer_min: 0.06           # 勞退雇主提撥 (法定 6%, 有些公司會再加碼)
+  health_insurance: required           # 勞健保 (法定)
+  annual_leave_min_days: 10            # 法定特休 1 年 7 天, 3 年 10 天; 你可設高一點
+  probation_max_months: 3              # 試用期上限 (超過 3 個月視為紅旗)
+  notice_period_max_days: 30           # 預告期上限 (法定最多 30 天, 超過可能違法)
+  overtime_pay_required: true          # 加班費必須明列 (拒絕「責任制」變相無加班費)
+
+red_flags:
+  # 評估時自動扣分的台灣特有警訊
+  - "責任制"                           # 變相要求無償加班
+  - "投保薪資低於實領"                  # 高薪低報, 影響勞退與失業給付
+  - "試用期超過 3 個月"
+  - "預告期超過 30 天"
+  - "競業條款超過 1 年或無補償"
+  - "派遣 / 外包 (除非明確標註)"
+  - "薪資面議 (無區間)"                # 多半薪資偏低
+  - "加班視為常態"
+
+green_flags:
+  # 評估時加分項
+  - "明列年終獎金月數"
+  - "勞退提撥高於 6%"
+  - "彈性工時 / 遠端友善"
+  - "提供 Mac / 高階設備"
+  - "教育訓練補助"
+  - "無責任制 / 加班費明列"
+  - "上市櫃 / 興櫃 (財務透明)"

@@ -2,11 +2,10 @@
 /**
  * normalize-statuses.mjs — Clean non-canonical states in applications.md
  *
- * Maps all non-canonical statuses to canonical ones per states.yml:
- *   Evaluada, Aplicado, Respondido, Entrevista, Oferta, Rechazado, Descartado, NO APLICAR
- *
- * Also strips markdown bold (**) and dates from the status field,
- * moving DUPLICADO info to the notes column.
+ * Resolves any status to the canonical English label per templates/states.yml
+ * (loaded via lib/states.mjs — single source of truth). Also strips markdown
+ * bold (**) and dates from the status field, moving DUPLICADO info to the
+ * notes column.
  *
  * Run: node career-ops/normalize-statuses.mjs [--dry-run]
  */
@@ -14,6 +13,7 @@
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { resolveLabel } from './lib/states.mjs';
 
 const CAREER_OPS = dirname(fileURLToPath(import.meta.url));
 // Support both layouts: data/applications.md (boilerplate) and applications.md (original)
@@ -22,74 +22,29 @@ const APPS_FILE = existsSync(join(CAREER_OPS, 'data/applications.md'))
   : join(CAREER_OPS, 'applications.md');
 const DRY_RUN = process.argv.includes('--dry-run');
 
-// Canonical status mapping
+/**
+ * Resolve any status string to its canonical English label using states.yml.
+ * For DUPLICADO/Repost variants, also returns `moveToNotes` so the caller can
+ * preserve the original annotation in the notes column.
+ *
+ * Returns { status, moveToNotes? } or { status: null, unknown: true } when
+ * states.yml has no matching label/id/alias.
+ */
 function normalizeStatus(raw) {
-  // Strip markdown bold
-  let s = raw.replace(/\*\*/g, '').trim();
-  const lower = s.toLowerCase();
-
-  // DUPLICADO variants → Descartado
-  if (/^duplicado/i.test(s) || /^dup\b/i.test(s)) {
-    return { status: 'Descartado', moveToNotes: raw.trim() };
+  if (raw == null) return { status: null, unknown: true };
+  const trimmed = String(raw).replace(/\*\*/g, '').trim();
+  if (trimmed === '' || trimmed === '—' || trimmed === '-') {
+    // Empty or em-dash placeholder → treat as Discarded (legacy convention)
+    return { status: resolveLabel('discarded') };
   }
-
-  // CERRADA → Descartado
-  if (/^cerrada$/i.test(s)) return { status: 'Descartado' };
-
-  // Cancelada (possibly with date) → Descartado
-  if (/^cancelada/i.test(s)) return { status: 'Descartado' };
-
-  // Descartada → Descartado
-  if (/^descartada$/i.test(s)) return { status: 'Descartado' };
-
-  // Rechazada → Rechazado
-  if (/^rechazada$/i.test(s)) return { status: 'Rechazado' };
-
-  // Rechazado with date → Rechazado (strip date)
-  if (/^rechazado\s+\d{4}/i.test(s)) return { status: 'Rechazado' };
-
-  // Aplicado with date → Aplicado (strip date)
-  if (/^aplicado\s+\d{4}/i.test(s)) return { status: 'Aplicado' };
-
-  // CONDICIONAL → Evaluada
-  if (/^condicional$/i.test(s)) return { status: 'Evaluada' };
-
-  // HOLD → Evaluada
-  if (/^hold$/i.test(s)) return { status: 'Evaluada' };
-
-  // MONITOR → Evaluada
-  if (/^monitor$/i.test(s)) return { status: 'Evaluada' };
-
-  // EVALUAR → Evaluada
-  if (/^evaluar$/i.test(s)) return { status: 'Evaluada' };
-
-  // Verificar → Evaluada
-  if (/^verificar$/i.test(s)) return { status: 'Evaluada' };
-
-  // GEO BLOCKER → NO APLICAR
-  if (/geo.?blocker/i.test(s)) return { status: 'NO APLICAR' };
-
-  // Repost #NNN → Descartado
-  if (/^repost/i.test(s)) return { status: 'Descartado', moveToNotes: raw.trim() };
-
-  // "—" (em dash, no status) → Descartado
-  if (s === '—' || s === '-' || s === '') return { status: 'Descartado' };
-
-  // Already canonical — just fix casing/bold
-  const canonical = [
-    'Evaluada', 'Aplicado', 'Respondido', 'Entrevista',
-    'Oferta', 'Rechazado', 'Descartado', 'NO APLICAR',
-  ];
-  for (const c of canonical) {
-    if (lower === c.toLowerCase()) return { status: c };
+  // Preserve "DUPLICADO #44" / "Repost #12" annotations in notes
+  const isDupAnnotation = /^(duplicado|dup\b|repost)/i.test(trimmed);
+  const resolved = resolveLabel(trimmed);
+  if (resolved) {
+    return isDupAnnotation
+      ? { status: resolved, moveToNotes: trimmed }
+      : { status: resolved };
   }
-
-  // Aliases from states.yml
-  if (['enviada', 'aplicada', 'applied', 'sent'].includes(lower)) return { status: 'Aplicado' };
-  if (['cerrada', 'descartada'].includes(lower)) return { status: 'Descartado' };
-  if (['no aplicar', 'no_aplicar', 'skip'].includes(lower)) return { status: 'NO APLICAR' };
-
-  // Unknown — flag it
   return { status: null, unknown: true };
 }
 

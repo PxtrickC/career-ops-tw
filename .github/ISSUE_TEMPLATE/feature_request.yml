@@ -20,4 +20,4 @@ body:
     attributes:
       value: |
         ---
-        Built by [santifer](https://santifer.io) — see the [architecture docs](docs/ARCHITECTURE.md) for how the system works.
+        career-ops-tw 是 [santifer/career-ops](https://github.com/santifer/career-ops) 的台灣繁中 fork. 系統架構詳見 [architecture docs](docs/ARCHITECTURE.md).

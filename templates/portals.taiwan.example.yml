@@ -1,0 +1,344 @@
+# Portal Scanner Configuration — Taiwan (預設)
+# 由 /career-ops scan 自動發掘新職缺.
+#
+# 這份範本是為台灣使用者設計的: 涵蓋本土主流求職平台 (104, CakeResume,
+# Yourator, Meet.jobs)、台灣分公司 / 在地新創、以及對台灣友善的遠端公司.
+#
+# 不在台灣? 請改用 templates/portals.example.yml.
+#
+# Strategy (3 levels):
+#   1. Playwright → 公司 careers_url (即時, 可靠)
+#   2. Greenhouse API → JSON (快, 限 Greenhouse)
+#   3. WebSearch + site: filter (廣泛, 可能過期)
+#
+# 怎麼客製化:
+#   1. 把這份檔案複製為專案根目錄的 portals.yml
+#   2. 編輯 title_filter.positive 加入你的目標職稱關鍵字 (中英雙語)
+#   3. 在 tracked_companies 增刪公司
+#   4. enabled: false 關掉你不在意的公司
+
+market: taiwan
+locale: zh-TW
+
+# -- 標題過濾 --
+# Scanner 用這些關鍵字判斷職缺是否相關.
+# 至少 1 個 positive 命中, 且 0 個 negative 命中 (大小寫不敏感).
+
+title_filter:
+  positive:
+    # -- 中文關鍵字 (台灣本土職缺) --
+    - "後端工程師"
+    - "前端工程師"
+    - "全端工程師"
+    - "資深工程師"
+    - "軟體工程師"
+    - "技術主管"
+    - "技術經理"
+    - "Tech Lead"
+    - "產品經理"
+    - "資料工程師"
+    - "資料科學家"
+    - "AI 工程師"
+    - "機器學習"
+    - "DevOps"
+    - "SRE"
+    - "雲端工程師"
+    - "解決方案"
+    # -- 英文關鍵字 (台灣外商 + 國際遠端) --
+    - "Backend Engineer"
+    - "Frontend Engineer"
+    - "Full Stack"
+    - "Software Engineer"
+    - "Senior Engineer"
+    - "Staff Engineer"
+    - "Platform Engineer"
+    - "Solutions Engineer"
+    - "AI Engineer"
+    - "ML Engineer"
+    - "LLM"
+    - "Data Engineer"
+    - "Product Manager"
+    - "Technical PM"
+  negative:
+    - "實習"
+    - "工讀"
+    - "Intern"
+    - "Junior"
+    - "派遣"
+    - "外包"
+    - "業務"
+    - "Sales"
+    - "客服"
+    - "行政"
+    - ".NET"
+    - "PHP"
+    - "iOS"
+    - "Android"
+    - "Embedded"
+    - "Firmware"
+    - "FPGA"
+    - "Blockchain"
+    - "Web3"
+  seniority_boost:
+    - "資深"
+    - "Senior"
+    - "Staff"
+    - "Principal"
+    - "Lead"
+    - "主管"
+    - "經理"
+    - "Head"
+
+# -- 搜尋查詢 --
+# 每個 query 觸發一次 WebSearch. 用 site: 過濾平台.
+
+search_queries:
+  # -- 注意 --
+  # 104 / CakeResume / Yourator / Meet.jobs **不在這裡**, 它們已移到下面
+  # tracked_companies, 用 Playwright 直接導航到搜尋結果頁掃描.
+  # 理由: 這些站都是 SPA + 短時效職缺, Google index 來不及收錄,
+  # 用 WebSearch (Level 3) 抓不到完整 listing.
+  #
+  # 這裡只保留「跨平台廣泛發現」用途的 query.
+
+  # -- LinkedIn Taiwan --
+  - name: LinkedIn TW — Senior Backend
+    query: 'site:linkedin.com/jobs "Senior Backend Engineer" Taiwan OR Taipei'
+    enabled: true
+
+  - name: LinkedIn TW — AI Engineer
+    query: 'site:linkedin.com/jobs "AI Engineer" OR "ML Engineer" Taiwan'
+    enabled: true
+
+  # -- 國際遠端 (給想投海外的台灣使用者) --
+  - name: Greenhouse — Remote AI
+    query: 'site:job-boards.greenhouse.io "AI Engineer" OR "Senior Backend" remote APAC OR worldwide'
+    enabled: true
+
+  - name: Ashby — Remote Engineering
+    query: 'site:jobs.ashbyhq.com "Senior" Engineer remote APAC OR worldwide'
+    enabled: true
+
+# -- 追蹤公司 --
+# 直接檢查公司 career page.
+# scan_method: playwright (預設), websearch, greenhouse_api
+
+tracked_companies:
+
+  # -- 台灣本土求職平台 (Level 0 — scan-portal.mjs CLI helper) --
+  # 走 portal_api scan_method, scan mode 用 Bash 跑 `node scan-portal.mjs <platform> [args]`.
+  # Helper 直接呼叫各平台的 JSON API (104, yourator) 或 SSR HTML (cake, 1111).
+  # 不需 Playwright. Output 是 JSONL: {platform, query, title, company, url, location, salary, posted}
+  #
+  # 客製化: 改 helper_args 內的 keyword / area / 分頁數即可.
+  # 一個 entry = 一組搜尋條件. 多關鍵字要多 entry.
+
+  - name: 104 — 資深產品設計師 (台北 + 遠端)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["104", "--keyword", "資深產品設計師", "--area", "6001001000", "--remote", "--pages", "2"]
+    notes: "area=6001001000 是台北市, --remote 加 remoteWork=1 過濾."
+    enabled: true
+
+  - name: 104 — 資深後端工程師 (台北)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["104", "--keyword", "資深後端工程師", "--area", "6001001000", "--pages", "2"]
+    enabled: true
+
+  - name: 104 — AI 工程師 (台北)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["104", "--keyword", "AI工程師", "--area", "6001001000", "--pages", "2"]
+    enabled: true
+
+  - name: CakeResume — Product Designer (Taiwan + Remote)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["cake", "--keyword", "product designer", "--location", "Taiwan", "--remote", "--pages", "2"]
+    enabled: true
+
+  - name: CakeResume — Founding Designer (Remote)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["cake", "--keyword", "founding designer", "--remote", "--pages", "2"]
+    enabled: true
+
+  - name: CakeResume — Senior Backend (Taiwan + Remote)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["cake", "--keyword", "senior backend", "--location", "Taiwan", "--remote", "--pages", "2"]
+    enabled: true
+
+  - name: Yourator — 設計師 (台灣新創)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["yourator", "--term", "designer", "--pages", "3"]
+    notes: "Yourator 用 category slug. 其他可選: engineer, marketing, business, finance, product."
+    enabled: true
+
+  - name: Yourator — 工程師 (台灣新創)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["yourator", "--term", "engineer", "--pages", "3"]
+    enabled: true
+
+  - name: 1111 — 產品設計師 (全台)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["1111", "--keyword", "產品設計師", "--pages", "2"]
+    notes: "1111 偏傳統工業/家具/工具產業, 對純數位設計師訊號較低, 但量大可補 104 漏網."
+    enabled: true
+
+  # -- DISABLED — Meet.jobs --
+  # Meet.jobs 的搜尋過濾完全在前端 React, URL 參數 (?q=, ?keyword=, ?term=) 全部無效,
+  # 也沒有可用的公開 JSON API. 它的 SSR HTML 只渲染預設首頁列表 (~10 筆混合職缺).
+  # 想要 Meet.jobs 訊號的話, 改用 Level 3 WebSearch + site:meet.jobs filter.
+  - name: Meet.jobs — (NOT supported via portal_api)
+    scan_method: portal_api
+    helper: scan-portal.mjs
+    helper_args: ["meet.jobs"]
+    enabled: false
+
+  # -- 台灣在地科技公司 / 新創 --
+
+  - name: Appier
+    careers_url: https://www.appier.com/en/careers
+    scan_method: websearch
+    scan_query: 'site:appier.com/careers OR site:cake.me/companies/appier'
+    notes: "台北上市. AI marketing platform. 國際團隊."
+    enabled: true
+
+  - name: Gogolook (Whoscall)
+    careers_url: https://whoscall.com/careers
+    scan_method: websearch
+    scan_query: 'site:whoscall.com OR site:cake.me/companies/gogolook 工程師'
+    notes: "台北. 來電辨識 + AI fraud detection."
+    enabled: true
+
+  - name: KKBOX
+    careers_url: https://www.kkbox.com/about/zh-tw/careers
+    scan_method: websearch
+    scan_query: 'site:kkbox.com 工程師'
+    notes: "台北. 串流音樂."
+    enabled: true
+
+  - name: Dcard
+    careers_url: https://about.dcard.tw/careers
+    scan_method: websearch
+    scan_query: 'site:dcard.tw 工程師 OR Engineer'
+    notes: "台北. 年輕世代社群."
+    enabled: true
+
+  - name: 17LIVE
+    careers_url: https://17.live/en/careers
+    scan_method: websearch
+    scan_query: 'site:17.live careers Engineer'
+    notes: "台北. 直播 + 社群."
+    enabled: true
+
+  - name: PicCollage
+    careers_url: https://pic-collage.com/jobs
+    scan_method: websearch
+    scan_query: 'site:pic-collage.com jobs OR site:cake.me/companies/piccollage'
+    notes: "台北. 圖像 app, AI features."
+    enabled: true
+
+  - name: iKala
+    careers_url: https://ikala.tv/zh-tw/careers
+    scan_method: websearch
+    scan_query: 'site:ikala.tv careers OR site:cake.me/companies/ikala'
+    notes: "台北. AI + cloud."
+    enabled: true
+
+  - name: 17 Media (M17)
+    careers_url: https://m17.asia/careers
+    scan_method: websearch
+    notes: "台北. Live streaming."
+    enabled: true
+
+  - name: 玉山金控 (E.SUN)
+    careers_url: https://www.esunbank.com.tw/zh-tw/personal/about/careers
+    scan_method: websearch
+    scan_query: '"玉山" 工程師 OR Engineer 數位'
+    notes: "台北. 數位金融轉型, 大量招 AI / 後端."
+    enabled: true
+
+  - name: TSMC (台積電 - software / IT)
+    careers_url: https://www.tsmc.com/english/careers
+    scan_method: websearch
+    scan_query: 'site:tsmc.com careers "Software Engineer" OR "Data Engineer"'
+    notes: "新竹. 半導體龍頭, 軟體 / 資料職缺."
+    enabled: false  # 預設關閉, 對純軟體工程師不一定合適
+
+  # -- 台灣外商 (有在地辦公室) --
+
+  - name: Google Taiwan
+    careers_url: https://careers.google.com/locations/taipei/
+    scan_method: websearch
+    scan_query: 'site:careers.google.com Taipei OR Taiwan Engineer'
+    notes: "台北. 硬體 + 軟體."
+    enabled: true
+
+  - name: Microsoft Taiwan
+    careers_url: https://careers.microsoft.com/professionals/us/en/l-taiwan
+    scan_method: websearch
+    scan_query: 'site:careers.microsoft.com Taiwan Engineer'
+    notes: "台北."
+    enabled: true
+
+  - name: AWS Taiwan
+    careers_url: https://www.amazon.jobs/en/locations/taipei-taiwan
+    scan_method: websearch
+    scan_query: 'site:amazon.jobs Taipei OR Taiwan Engineer'
+    enabled: true
+
+  - name: Trend Micro (趨勢科技)
+    careers_url: https://careers.trendmicro.com/en_US/careers
+    scan_method: websearch
+    scan_query: 'site:trendmicro.com careers Taiwan Engineer'
+    notes: "台北. 資安老牌."
+    enabled: true
+
+  - name: ByteDance Taiwan
+    careers_url: https://jobs.bytedance.com/en/position
+    scan_method: websearch
+    scan_query: 'site:jobs.bytedance.com Taipei OR Taiwan'
+    enabled: true
+
+  # -- 對台灣 / APAC 友善的遠端公司 --
+
+  - name: GitLab
+    careers_url: https://about.gitlab.com/jobs/all-jobs/
+    scan_method: websearch
+    scan_query: 'site:about.gitlab.com/jobs APAC OR Taiwan OR remote'
+    notes: "All-remote. 對 APAC 友善."
+    enabled: true
+
+  - name: Automattic
+    careers_url: https://automattic.com/work-with-us/
+    scan_method: websearch
+    notes: "All-remote. WordPress 母公司."
+    enabled: true
+
+  - name: Vercel
+    careers_url: https://job-boards.greenhouse.io/vercel
+    api: https://boards-api.greenhouse.io/v1/boards/vercel/jobs
+    notes: "Remote-friendly. 部分 APAC 職缺."
+    enabled: true
+
+  - name: Hugging Face
+    careers_url: https://apply.workable.com/huggingface
+    scan_method: websearch
+    scan_query: 'site:apply.workable.com/huggingface remote'
+    enabled: true
+
+  - name: Anthropic
+    careers_url: https://job-boards.greenhouse.io/anthropic
+    api: https://boards-api.greenhouse.io/v1/boards/anthropic/jobs
+    notes: "大部分需 US/UK, 但偶有 remote."
+    enabled: true
+
+# -- 範例設定結束 --
+# 提示: 用 `node verify-pipeline.mjs` 驗證設定檔正確,
+# 用 `node scan.mjs --dry-run` 預覽會抓哪些查詢但不真的執行.

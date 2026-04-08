@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{NAME}} — CV</title>
+<!-- CJK fallback font for zh-TW CV. Loaded from Google Fonts; Latin chars
+     still use DM Sans / Space Grotesk first, so English CVs are unchanged. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   @font-face {
     font-family: 'Space Grotesk';
@@ -50,7 +55,7 @@
   }
 
   body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'DM Sans', 'Noto Sans TC', sans-serif;
     font-size: 11px;
     line-height: 1.5;
     color: #1a1a2e;
@@ -72,7 +77,7 @@
   }
 
   .header h1 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif;
     font-size: 24px;
     font-weight: 700;
     color: #1a1a2e;
@@ -111,7 +116,7 @@
   }
 
   .section-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif;
     font-size: 13px;
     font-weight: 600;
     text-transform: uppercase;
@@ -165,7 +170,7 @@
   }
 
   .job-company {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif;
     font-size: 12px;
     font-weight: 600;
     color: hsl(270, 70%, 45%);
@@ -211,7 +216,7 @@
   }
 
   .project-title {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif;
     font-size: 11px;
     font-weight: 600;
     color: hsl(270, 70%, 45%);

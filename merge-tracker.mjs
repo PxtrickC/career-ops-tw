@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, renameSync, existsSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { validateStatus, resolveLabel } from './lib/states.mjs';
 
 const CAREER_OPS = dirname(fileURLToPath(import.meta.url));
 // Support both layouts: data/applications.md (boilerplate) and applications.md (original)
@@ -28,45 +29,79 @@ const MERGED_DIR = join(ADDITIONS_DIR, 'merged');
 const DRY_RUN = process.argv.includes('--dry-run');
 const VERIFY = process.argv.includes('--verify');
 
-// Canonical states and aliases
-const CANONICAL_STATES = ['Evaluada', 'Aplicado', 'Respondido', 'Entrevista', 'Oferta', 'Rechazado', 'Descartado', 'NO APLICAR'];
-
-function validateStatus(status) {
-  const clean = status.replace(/\*\*/g, '').replace(/\s+\d{4}-\d{2}-\d{2}.*$/, '').trim();
-  const lower = clean.toLowerCase();
-
-  for (const valid of CANONICAL_STATES) {
-    if (valid.toLowerCase() === lower) return valid;
-  }
-
-  // Aliases
-  const aliases = {
-    'enviada': 'Aplicado', 'aplicada': 'Aplicado', 'applied': 'Aplicado', 'sent': 'Aplicado',
-    'cerrada': 'Descartado', 'descartada': 'Descartado', 'cancelada': 'Descartado',
-    'rechazada': 'Rechazado',
-    'no aplicar': 'NO APLICAR', 'no_aplicar': 'NO APLICAR', 'skip': 'NO APLICAR', 'monitor': 'NO APLICAR',
-    'condicional': 'Evaluada', 'hold': 'Evaluada', 'evaluar': 'Evaluada', 'verificar': 'Evaluada',
-    'geo blocker': 'NO APLICAR',
-  };
-
-  if (aliases[lower]) return aliases[lower];
-
-  // DUPLICADO/Repost → Descartado
-  if (/^(duplicado|dup|repost)/i.test(lower)) return 'Descartado';
-
-  console.warn(`⚠️  Non-canonical status "${status}" → defaulting to "Evaluada"`);
-  return 'Evaluada';
-}
+// Canonical states are loaded from templates/states.yml via lib/states.mjs.
+// All status validation goes through `validateStatus()` (imported above) so
+// there is exactly one source of truth for canonical labels and aliases.
 
 function normalizeCompany(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// Words that mark a seniority level. Two roles at the same company that
+// disagree on level are different jobs (e.g. AmazingTalker `產品設計師` vs
+// `資深產品設計師` — junior at NT$70K vs senior at NT$178K). Treating them as
+// the same row would clobber one evaluation with the other's score.
+const LEVEL_TOKENS = [
+  'junior', 'jr', 'mid', 'senior', 'sr', 'staff', 'principal', 'lead',
+  'head', 'director', 'chief', 'manager', 'intern',
+  '初級', '資淺', '中級', '資深', '主任', '主管', '總監', '經理', '副理',
+  '實習', '見習', '工讀',
+];
+
+// Normalize abbreviated level tokens so `Sr. Product Designer` and
+// `Senior Product Designer` are recognized as the same level.
+const LEVEL_ALIAS = { sr: 'senior', jr: 'junior' };
+
+function extractLevel(role) {
+  const lower = role.toLowerCase();
+  const found = new Set();
+  for (const tok of LEVEL_TOKENS) {
+    // Word-boundary for ASCII, plain substring for CJK
+    if (/^[a-z]+$/.test(tok)) {
+      if (new RegExp(`\\b${tok}\\b`, 'i').test(lower)) {
+        found.add(LEVEL_ALIAS[tok] || tok);
+      }
+    } else if (role.includes(tok)) {
+      found.add(tok);
+    }
+  }
+  return found;
+}
+
 function roleFuzzyMatch(a, b) {
+  // First gate: token overlap (handles English roles like
+  // "Senior Product Designer" vs "Senior PD" via substring contains).
   const wordsA = a.toLowerCase().split(/\s+/).filter(w => w.length > 3);
   const wordsB = b.toLowerCase().split(/\s+/).filter(w => w.length > 3);
   const overlap = wordsA.filter(w => wordsB.some(wb => wb.includes(w) || w.includes(wb)));
-  return overlap.length >= 2;
+  let textMatches = overlap.length >= 2;
+
+  // CJK fallback: the ASCII-word gate misses Chinese titles entirely
+  // (`產品設計師` is one no-whitespace token < length 4 after lowercase). Treat
+  // CJK titles as matching when one contains the other AND length is similar.
+  if (!textMatches && /[\u4e00-\u9fff]/.test(a) && /[\u4e00-\u9fff]/.test(b)) {
+    const cjkA = a.replace(/[^\u4e00-\u9fff]/g, '');
+    const cjkB = b.replace(/[^\u4e00-\u9fff]/g, '');
+    if (cjkA && cjkB && (cjkA.includes(cjkB) || cjkB.includes(cjkA))) {
+      textMatches = true;
+    }
+  }
+
+  if (!textMatches) return false;
+
+  // Second gate: level disagreement → not the same role.
+  // If both sides declare a level and the levels don't overlap, they're
+  // distinct (junior vs senior). If only one side declares a level and the
+  // other has none, that's also a disagreement (the unmarked side is the
+  // base/junior tier; explicit Senior is a different posting).
+  const levelsA = extractLevel(a);
+  const levelsB = extractLevel(b);
+  if (levelsA.size > 0 || levelsB.size > 0) {
+    const intersect = [...levelsA].some(l => levelsB.has(l));
+    if (!intersect) return false;
+  }
+
+  return true;
 }
 
 function extractReportNum(reportStr) {
@@ -84,10 +119,17 @@ function parseAppLine(line) {
   if (parts.length < 9) return null;
   const num = parseInt(parts[1]);
   if (isNaN(num) || num === 0) return null;
+  // Normalize the existing row's status to the canonical English label so
+  // legacy Spanish rows (Evaluada, Aplicado…) get migrated on the next write.
+  const canonical = resolveLabel(parts[6]) || parts[6];
+  const migrated = canonical !== parts[6];
+  const rawLine = migrated
+    ? '| ' + [parts[1], parts[2], parts[3], parts[4], parts[5], canonical, parts[7], parts[8], parts[9] || ''].join(' | ') + ' |'
+    : line;
   return {
     num, date: parts[2], company: parts[3], role: parts[4],
-    score: parts[5], status: parts[6], pdf: parts[7], report: parts[8],
-    notes: parts[9] || '', raw: line,
+    score: parts[5], status: canonical, pdf: parts[7], report: parts[8],
+    notes: parts[9] || '', raw: rawLine, originalRaw: line, migrated,
   };
 }
 
@@ -135,8 +177,9 @@ function parseTsvContent(content, filename) {
     const col5 = parts[5].trim();
     const col4LooksLikeScore = /^\d+\.?\d*\/5$/.test(col4) || col4 === 'N/A' || col4 === 'DUP';
     const col5LooksLikeScore = /^\d+\.?\d*\/5$/.test(col5) || col5 === 'N/A' || col5 === 'DUP';
-    const col4LooksLikeStatus = /^(evaluada|aplicado|respondido|entrevista|oferta|rechazado|descartado|no aplicar|cerrada|duplicado|repost|condicional|hold|monitor)/i.test(col4);
-    const col5LooksLikeStatus = /^(evaluada|aplicado|respondido|entrevista|oferta|rechazado|descartado|no aplicar|cerrada|duplicado|repost|condicional|hold|monitor)/i.test(col5);
+    // A column "looks like" a status if states.mjs can resolve it to a canonical label.
+    const col4LooksLikeStatus = resolveLabel(col4) !== null;
+    const col5LooksLikeStatus = resolveLabel(col5) !== null;
 
     let statusCol, scoreCol;
     if (col4LooksLikeStatus && !col4LooksLikeScore) {
@@ -186,16 +229,25 @@ const appLines = appContent.split('\n');
 const existingApps = [];
 let maxNum = 0;
 
-for (const line of appLines) {
+let migratedRows = 0;
+for (let i = 0; i < appLines.length; i++) {
+  const line = appLines[i];
   if (line.startsWith('|') && !line.includes('---') && !line.includes('Empresa')) {
     const app = parseAppLine(line);
     if (app) {
       existingApps.push(app);
       if (app.num > maxNum) maxNum = app.num;
+      if (app.migrated) {
+        appLines[i] = app.raw;
+        migratedRows++;
+      }
     }
   }
 }
 
+if (migratedRows > 0) {
+  console.log(`🔁 Migrated ${migratedRows} legacy status labels → canonical English`);
+}
 console.log(`📊 Existing: ${existingApps.length} entries, max #${maxNum}`);
 
 // Read tracker additions

@@ -65,7 +65,6 @@ const scripts = [
   { name: 'normalize-statuses.mjs', expectExit: 0 },
   { name: 'dedup-tracker.mjs', expectExit: 0 },
   { name: 'merge-tracker.mjs', expectExit: 0 },
-  { name: 'update-system.mjs check', expectExit: 0 },
 ];
 
 for (const { name, allowFail } of scripts) {
@@ -97,12 +96,14 @@ if (!QUICK) {
 
 console.log('\n4. Data contract validation');
 
-// Check system files exist
+// Check system files exist (career-ops-tw is Taiwan-only — modes live in modes/zh-TW)
 const systemFiles = [
   'CLAUDE.md', 'VERSION', 'DATA_CONTRACT.md',
-  'modes/_shared.md', 'modes/_profile.template.md',
-  'modes/oferta.md', 'modes/pdf.md', 'modes/scan.md',
+  'modes/zh-TW/_shared.md', 'modes/zh-TW/_profile.template.md',
+  'modes/zh-TW/oferta.md', 'modes/zh-TW/pdf.md', 'modes/zh-TW/scan.md',
   'templates/states.yml', 'templates/cv-template.html',
+  'templates/portals.taiwan.example.yml', 'config/profile.taiwan.example.yml',
+  'lib/states.mjs', 'scan-portal.mjs',
   '.claude/skills/career-ops/SKILL.md',
 ];
 
@@ -116,7 +117,7 @@ for (const f of systemFiles) {
 
 // Check user files are NOT tracked (gitignored)
 const userFiles = [
-  'config/profile.yml', 'modes/_profile.md', 'portals.yml',
+  'config/profile.yml', 'modes/zh-TW/_profile.md', 'portals.yml', 'cv.md',
 ];
 for (const f of userFiles) {
   const tracked = run(`git ls-files ${f}`);
@@ -140,8 +141,12 @@ const leakPatterns = [
 
 const scanExtensions = ['md', 'yml', 'html', 'mjs', 'sh', 'go', 'json'];
 const excludeDirs = ['node_modules', '.git', 'dashboard/go.sum'];
+// Files where upstream attribution to santifer is intentional and allowed.
+// Any contributor's personal data (real names, emails, phones, repo paths)
+// must NEVER appear anywhere — that's the whole point of this leak check.
 const allowedFiles = ['README.md', 'LICENSE', 'CITATION.cff', 'CONTRIBUTING.md',
-  'package.json', '.github/FUNDING.yml', 'CLAUDE.md', 'go.mod', 'test-all.mjs'];
+  'package.json', 'CLAUDE.md', 'go.mod', 'test-all.mjs',
+  '.github/ISSUE_TEMPLATE/bug_report.yml', '.github/ISSUE_TEMPLATE/feature_request.yml'];
 
 let leakFound = false;
 for (const pattern of leakPatterns) {
@@ -188,19 +193,19 @@ const expectedModes = [
 ];
 
 for (const mode of expectedModes) {
-  if (fileExists(`modes/${mode}`)) {
-    pass(`Mode exists: ${mode}`);
+  if (fileExists(`modes/zh-TW/${mode}`)) {
+    pass(`Mode exists: zh-TW/${mode}`);
   } else {
-    fail(`Missing mode: ${mode}`);
+    fail(`Missing mode: zh-TW/${mode}`);
   }
 }
 
-// Check _shared.md references _profile.md
-const shared = readFile('modes/_shared.md');
+// Check _shared.md references _profile.md as the user-customization layer
+const shared = readFile('modes/zh-TW/_shared.md');
 if (shared.includes('_profile.md')) {
-  pass('_shared.md references _profile.md');
+  pass('zh-TW/_shared.md references _profile.md');
 } else {
-  fail('_shared.md does NOT reference _profile.md');
+  fail('zh-TW/_shared.md does NOT reference _profile.md');
 }
 
 // ── 8. CLAUDE.md INTEGRITY ──────────────────────────────────────
@@ -209,7 +214,7 @@ console.log('\n8. CLAUDE.md integrity');
 
 const claude = readFile('CLAUDE.md');
 const requiredSections = [
-  'Data Contract', 'Update Check', 'Ethical Use',
+  'Data Contract', 'Updates', 'Ethical Use',
   'Offer Verification', 'Canonical States', 'TSV Format',
   'First Run', 'Onboarding',
 ];

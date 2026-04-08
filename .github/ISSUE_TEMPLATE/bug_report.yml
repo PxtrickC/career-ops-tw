@@ -30,4 +30,4 @@ body:
     attributes:
       value: |
         ---
-        Built by [santifer](https://santifer.io) — need direct help? [Open a discussion](https://github.com/santifer/career-ops/discussions) or reach out at [santifer.io](https://santifer.io).
+        career-ops-tw 是 [santifer/career-ops](https://github.com/santifer/career-ops) 的台灣繁中 fork. 如果問題跟核心評估流程有關, 也可以參考原專案的 [discussions](https://github.com/santifer/career-ops/discussions).

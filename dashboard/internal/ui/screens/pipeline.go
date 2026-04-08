@@ -9,9 +9,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/santifer/career-ops/dashboard/internal/data"
-	"github.com/santifer/career-ops/dashboard/internal/model"
-	"github.com/santifer/career-ops/dashboard/internal/theme"
+	"github.com/PxtrickC/career-ops-tw/dashboard/internal/data"
+	"github.com/PxtrickC/career-ops-tw/dashboard/internal/model"
+	"github.com/PxtrickC/career-ops-tw/dashboard/internal/theme"
 )
 
 // PipelineClosedMsg is emitted when the pipeline screen is dismissed.
@@ -760,7 +760,7 @@ func (m PipelineModel) renderHelp() string {
 				keyStyle.Render("Esc") + descStyle.Render(" cancel"))
 	}
 
-	brand := lipgloss.NewStyle().Foreground(m.theme.Overlay).Render("career-ops by santifer.io")
+	brand := lipgloss.NewStyle().Foreground(m.theme.Overlay).Render("career-ops-tw · 台灣求職者開源工具")
 
 	keys := keyStyle.Render("↑↓") + descStyle.Render(" nav  ") +
 		keyStyle.Render("←→") + descStyle.Render(" tabs  ") +
